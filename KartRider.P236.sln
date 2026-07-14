@@ -1,0 +1,57 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{75D57A1F-B3D7-4FB2-97F7-69994705A163}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KartRider.P236.Connector", "src\KartRider.P236.Connector\KartRider.P236.Connector.csproj", "{CC5EF54E-7D9C-4F73-8298-27D37A0B2A0A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KartRider.P236.Server", "src\KartRider.P236.Server\KartRider.P236.Server.csproj", "{CE467319-1C4F-4EFF-8E11-2F0F8EEECC44}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KartRider.P236.Server.Host", "src\KartRider.P236.Server.Host\KartRider.P236.Server.Host.csproj", "{2343CE83-7FD3-4EA6-B687-900D65217844}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{23D39D33-29A4-4506-B063-9D4756AB7CB1}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KartRider.P236.Server.Tests", "tests\ServerSmokeTests\KartRider.P236.Server.Tests.csproj", "{480D82D0-4B12-4093-A203-AA06AC065A4B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KartRider.P236.Connector.Tests", "tests\ConnectorTests\KartRider.P236.Connector.Tests.csproj", "{4AB933D8-89FC-4A4D-9142-B57B68CCAA06}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{CC5EF54E-7D9C-4F73-8298-27D37A0B2A0A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CC5EF54E-7D9C-4F73-8298-27D37A0B2A0A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CC5EF54E-7D9C-4F73-8298-27D37A0B2A0A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CC5EF54E-7D9C-4F73-8298-27D37A0B2A0A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CE467319-1C4F-4EFF-8E11-2F0F8EEECC44}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CE467319-1C4F-4EFF-8E11-2F0F8EEECC44}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CE467319-1C4F-4EFF-8E11-2F0F8EEECC44}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CE467319-1C4F-4EFF-8E11-2F0F8EEECC44}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2343CE83-7FD3-4EA6-B687-900D65217844}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2343CE83-7FD3-4EA6-B687-900D65217844}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2343CE83-7FD3-4EA6-B687-900D65217844}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2343CE83-7FD3-4EA6-B687-900D65217844}.Release|Any CPU.Build.0 = Release|Any CPU
+		{480D82D0-4B12-4093-A203-AA06AC065A4B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{480D82D0-4B12-4093-A203-AA06AC065A4B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{480D82D0-4B12-4093-A203-AA06AC065A4B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{480D82D0-4B12-4093-A203-AA06AC065A4B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4AB933D8-89FC-4A4D-9142-B57B68CCAA06}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4AB933D8-89FC-4A4D-9142-B57B68CCAA06}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4AB933D8-89FC-4A4D-9142-B57B68CCAA06}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4AB933D8-89FC-4A4D-9142-B57B68CCAA06}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{CC5EF54E-7D9C-4F73-8298-27D37A0B2A0A} = {75D57A1F-B3D7-4FB2-97F7-69994705A163}
+		{CE467319-1C4F-4EFF-8E11-2F0F8EEECC44} = {75D57A1F-B3D7-4FB2-97F7-69994705A163}
+		{2343CE83-7FD3-4EA6-B687-900D65217844} = {75D57A1F-B3D7-4FB2-97F7-69994705A163}
+		{480D82D0-4B12-4093-A203-AA06AC065A4B} = {23D39D33-29A4-4506-B063-9D4756AB7CB1}
+		{4AB933D8-89FC-4A4D-9142-B57B68CCAA06} = {23D39D33-29A4-4506-B063-9D4756AB7CB1}
+	EndGlobalSection
+EndGlobal

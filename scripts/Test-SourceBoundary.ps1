@@ -26,7 +26,8 @@ $forbiddenSegmentPatterns = @(
 )
 $forbiddenNames = @(
     'KartRider.exe', 'KartRider.pin', 'KartRider.xml', 'launcher.xml',
-    'profiles.json', 'observers.json', 'p236-packets.log', '.gitmodules'
+    'profiles.json', 'observers.json', 'item-probabilities.json',
+    'server-launcher.json', 'p236-packets.log', '.gitmodules'
 )
 $forbiddenExtensions = @(
     '.exe', '.dll', '.pdb', '.rho', '.rho5', '.bml', '.ksv', '.1s', '.sg',
@@ -129,6 +130,28 @@ foreach ($file in $files) {
     }
 
     $text = [System.Text.Encoding]::UTF8.GetString($bytes)
+
+    # The GUI permits arbitrary JSON filenames. Detect exported probability
+    # tables by their schema so renaming item-probabilities.json cannot bypass
+    # the public-source boundary.
+    if ($file.Extension.Equals('.json', [System.StringComparison]::OrdinalIgnoreCase)) {
+        try {
+            $json = $text | ConvertFrom-Json -ErrorAction Stop
+            $propertyNames = @($json.PSObject.Properties.Name)
+            $probabilityProperties = @(
+                'version', 'individual', 'team', 'flag',
+                'individualBonus', 'teamBonus'
+            )
+            if (@($probabilityProperties | Where-Object { $_ -notin $propertyNames }).Count -eq 0) {
+                $violations.Add("generated item-probability JSON is not allowed: $relative")
+            }
+        }
+        catch {
+            # Malformed JSON is handled by normal review/build tooling; this
+            # check only identifies the exported probability schema.
+        }
+    }
+
     foreach ($entry in $sensitivePatterns.GetEnumerator()) {
         if ($text -match $entry.Value) {
             $violations.Add("$($entry.Key): $relative")

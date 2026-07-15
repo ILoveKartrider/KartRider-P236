@@ -12,6 +12,12 @@ from or are modified from this AFL-3.0 project. The complete AFL-3.0 text is in
 [`LICENSE.md`](LICENSE.md), and the modification notice is in
 [`NOTICE.md`](NOTICE.md).
 
+The item-probability module contains substantially reduced and bounds-checked
+adaptations of Launcher_V2's RHO 1.0/1.1, BML, KRData and `aaa.pk` compatibility
+code. It is used only to import and transactionally update probability tables in
+a user-selected P236 installation. Its more specific provenance notice is in
+[`src/KartRider.P236.ItemProbabilities/NOTICE.md`](src/KartRider.P236.ItemProbabilities/NOTICE.md).
+
 No source or binary from `Launcher_HF_5136` is redistributed by this
 repository because that repository did not carry an explicit license when this
 distribution was prepared.

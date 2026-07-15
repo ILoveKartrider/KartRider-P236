@@ -124,6 +124,11 @@ try {
         '-c', 'Release', '-r', $Runtime, '--self-contained', $selfContainedValue,
         '-o', $serverOutput
     )
+    Invoke-DotNet @(
+        'publish', '.\src\KartRider.P236.Server.Launcher\KartRider.P236.Server.Launcher.csproj',
+        '-c', 'Release', '-r', $Runtime, '--self-contained', $selfContainedValue,
+        '-o', $serverOutput
+    )
 
     foreach ($output in @($connectorOutput, $serverOutput)) {
         Copy-Item -LiteralPath '.\LICENSE.md' -Destination $output
@@ -133,6 +138,8 @@ try {
         Copy-Item -LiteralPath $dotNetNotices.License -Destination (Join-Path $output 'DOTNET-LICENSE.txt')
         Copy-Item -LiteralPath $dotNetNotices.Notices -Destination (Join-Path $output 'DOTNET-THIRD-PARTY-NOTICES.txt')
     }
+    Copy-Item -LiteralPath '.\src\KartRider.P236.ItemProbabilities\NOTICE.md' `
+        -Destination (Join-Path $serverOutput 'ITEM-PROBABILITY-NOTICE.md')
 }
 finally {
     Pop-Location

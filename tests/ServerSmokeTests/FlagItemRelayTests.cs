@@ -8,10 +8,12 @@ namespace KartRider.P236.Server.Tests;
 public sealed class FlagItemRelayTests
 {
     [Fact]
-    public void FlagSpecificOperationsRelayCapturedEnvelopesByteForByte()
+    public void FlagSpecificAndCloudBlackNotCloud2OperationsRelayCapturedEnvelopesByteForByte()
     {
         (string Name, uint Operation, uint BaseType, int RawLength)[] captures =
         [
+            // The P236 ink-cloud capture uses CloudBlack, not Cloud2.
+            ("CloudBlack", 0x225A04FA, 0x32F90619, 72),
             ("Ghost", 0x0D8B032B, 0x188F044A, 24),
             ("Mine state 1", 0x0A6B02AF, 0x145003CE, 72),
             ("Mine transition", 0x0A6B02AF, 0x145003CE, 25),
@@ -88,6 +90,20 @@ public sealed class FlagItemRelayTests
             Assert.False(
                 targetSockets.Peer.Poll(100_000, SelectMode.SelectRead),
                 "A flag item operation with the wrong native base type was relayed.");
+
+            byte[] cloudBlackWithCloud2Base = BuildGameSlot(
+                ownerMember.SlotId,
+                recipientMask,
+                operation: 0x225A04FA,
+                baseType: 0x1CED046E,
+                rawLength: 24);
+            using (InPacket incoming = new(cloudBlackWithCloud2Base))
+            {
+                PacketDispatcher.Handle(owner, incoming);
+            }
+            Assert.False(
+                targetSockets.Peer.Poll(100_000, SelectMode.SelectRead),
+                "A P236 CloudBlack operation carrying the Cloud2 base type was relayed.");
         }
         finally
         {

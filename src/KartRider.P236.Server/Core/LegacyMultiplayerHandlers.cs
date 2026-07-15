@@ -848,6 +848,9 @@ internal static class LegacyMultiplayerHandlers
 		new Dictionary<uint, uint>
 		{
 			[Hash("GopCloud")] = Hash("GoItemCloud"),
+			// The captured P236 special ink-cloud operation is CloudBlack, not the
+			// similarly named Cloud2 candidate from the static packet-name list.
+			[Hash("GopCloudBlack")] = Hash("GoItemCloudBlack"),
 			[Hash("GopBanana")] = Hash("GoItemBanana"),
 			[Hash("GopShield")] = Hash("GoItemShield"),
 			[Hash("GopSiren")] = Hash("GoItemSiren"),

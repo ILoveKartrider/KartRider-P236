@@ -17,6 +17,8 @@ TestResults/
 /data/
 /logs/
 /Profile/
+item-probabilities.json
+server-launcher.json
 *.log
 *.bak
 *.tmp

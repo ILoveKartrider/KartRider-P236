@@ -13,9 +13,12 @@ The repository intentionally contains none of the following:
 - user profiles, server logs, credentials, or locally generated account data.
 
 Users must supply only software and data they are legally entitled to use.
-The connector operates on a user-selected local installation and does not
-download or distribute a client. Do not publish client files, extracted assets,
-or private user data in issues or pull requests.
+The connector and item-probability editor operate on a user-selected local
+installation and do not download or distribute a client. The probability
+editor modifies `item.rho` and adjacent `aaa.pk` metadata only after an explicit
+apply action and maintains recovery data for the two-file update. Do not publish
+client files, extracted assets, generated probability tables, or private user
+data in issues or pull requests.
 
 This document is a project policy, not legal advice. Laws and license terms vary
 by jurisdiction; distributors remain responsible for reviewing their own use.

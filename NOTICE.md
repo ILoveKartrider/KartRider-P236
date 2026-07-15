@@ -10,8 +10,10 @@ under the Academic Free License 3.0 (AFL-3.0).
 
 This distribution adds and reorganizes source for protocol 236 support, a
 standalone server host, persistent local profiles, multiplayer game modes, and
-a Windows connector. The source layout, compatibility implementation, and
-distribution tooling have been substantially modified.
+a Windows connector. It also adds a Windows server launcher and a bounded,
+transactional adapter for user-selected P236 item-probability BML/RHO data. The
+source layout, compatibility implementation, and distribution tooling have
+been substantially modified.
 
 The upstream project and its contributors do not endorse this project.
 KartRider and Nexon are names or marks of their respective owners. They are

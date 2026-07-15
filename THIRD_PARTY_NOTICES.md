@@ -28,8 +28,10 @@ The application projects target .NET 8 and use framework libraries. Microsoft
 runtime components are not stored in this source repository; normal
 `dotnet publish` rules apply to release artifacts.
 
-Published packages contain the .NET native application host and may contain a
-self-contained .NET runtime. `scripts/Publish.ps1` copies the active SDK's
+Official release packages are framework-dependent starting with v0.2.1. They
+contain the .NET native application host but do not bundle the shared .NET
+runtime; users install the .NET 8 Desktop Runtime separately.
+`scripts/Publish.ps1` copies the active SDK's
 `LICENSE.txt` and `ThirdPartyNotices.txt` into each package as
 `DOTNET-LICENSE.txt` and `DOTNET-THIRD-PARTY-NOTICES.txt`. See Microsoft's
 [.NET redistribution licensing information](https://github.com/dotnet/core/blob/main/license-information.md#redistribution).

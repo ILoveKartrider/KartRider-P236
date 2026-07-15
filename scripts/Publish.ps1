@@ -1,8 +1,7 @@
 [CmdletBinding()]
 param(
     [ValidateSet('win-x64')]
-    [string]$Runtime = 'win-x64',
-    [switch]$SelfContained
+    [string]$Runtime = 'win-x64'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -61,6 +60,55 @@ function Invoke-DotNet {
     }
 }
 
+function Assert-FrameworkDependentPublish {
+    param(
+        [Parameter(Mandatory)][string]$ConnectorOutput,
+        [Parameter(Mandatory)][string]$ServerOutput
+    )
+
+    $runtimePayloadNames = @(
+        'coreclr.dll', 'clrjit.dll', 'hostfxr.dll', 'hostpolicy.dll',
+        'System.Private.CoreLib.dll', 'createdump.exe', 'mscordaccore.dll',
+        'mscordbi.dll'
+    )
+    $runtimePayloads = @(
+        Get-ChildItem -LiteralPath $ConnectorOutput, $ServerOutput -Recurse -File |
+            Where-Object { $_.Name -in $runtimePayloadNames }
+    )
+    if ($runtimePayloads.Count -gt 0) {
+        $paths = $runtimePayloads.FullName -join ', '
+        throw "Framework-dependent publish unexpectedly contains .NET runtime payloads: $paths"
+    }
+
+    $maximumGuiExecutableBytes = 10MB
+    foreach ($executable in @(
+        (Join-Path $ConnectorOutput 'KartRider.P236.Connector.exe'),
+        (Join-Path $ServerOutput 'KartRider.P236.Server.Launcher.exe')
+    )) {
+        if (-not (Test-Path -LiteralPath $executable -PathType Leaf)) {
+            throw "Expected published executable was not found: $executable"
+        }
+        $length = (Get-Item -LiteralPath $executable).Length
+        if ($length -gt $maximumGuiExecutableBytes) {
+            throw "Published GUI executable exceeds the 10 MiB framework-dependent limit: " +
+                "$executable ($length bytes)."
+        }
+    }
+
+    foreach ($packageLimit in @(
+        [pscustomobject]@{ Path = $ConnectorOutput; MaximumBytes = 10MB },
+        [pscustomobject]@{ Path = $ServerOutput; MaximumBytes = 20MB }
+    )) {
+        $packageBytes = (
+            Get-ChildItem -LiteralPath $packageLimit.Path -Recurse -File |
+                Measure-Object -Property Length -Sum).Sum
+        if ($packageBytes -gt $packageLimit.MaximumBytes) {
+            throw "Published package exceeds its framework-dependent size limit: " +
+                "$($packageLimit.Path) ($packageBytes bytes)."
+        }
+    }
+}
+
 function Get-DotNetNoticeFiles {
     $candidateRoots = [System.Collections.Generic.HashSet[string]]::new(
         [System.StringComparer]::OrdinalIgnoreCase)
@@ -110,25 +158,26 @@ if (Test-Path -LiteralPath $artifactRoot) {
 
 $connectorOutput = Join-Path $artifactRoot 'connector'
 $serverOutput = Join-Path $artifactRoot 'server'
-$selfContainedValue = if ($SelfContained) { 'true' } else { 'false' }
 
 Push-Location $root
 try {
     Invoke-DotNet @(
         'publish', '.\src\KartRider.P236.Connector\KartRider.P236.Connector.csproj',
-        '-c', 'Release', '-r', $Runtime, '--self-contained', $selfContainedValue,
+        '-c', 'Release', '-r', $Runtime, '--self-contained', 'false',
         '-o', $connectorOutput
     )
     Invoke-DotNet @(
         'publish', '.\src\KartRider.P236.Server.Host\KartRider.P236.Server.Host.csproj',
-        '-c', 'Release', '-r', $Runtime, '--self-contained', $selfContainedValue,
+        '-c', 'Release', '-r', $Runtime, '--self-contained', 'false',
         '-o', $serverOutput
     )
     Invoke-DotNet @(
         'publish', '.\src\KartRider.P236.Server.Launcher\KartRider.P236.Server.Launcher.csproj',
-        '-c', 'Release', '-r', $Runtime, '--self-contained', $selfContainedValue,
+        '-c', 'Release', '-r', $Runtime, '--self-contained', 'false',
         '-o', $serverOutput
     )
+
+    Assert-FrameworkDependentPublish -ConnectorOutput $connectorOutput -ServerOutput $serverOutput
 
     foreach ($output in @($connectorOutput, $serverOutput)) {
         Copy-Item -LiteralPath '.\LICENSE.md' -Destination $output
@@ -147,3 +196,4 @@ finally {
 
 Write-Host "Published connector: $connectorOutput"
 Write-Host "Published server:    $serverOutput"
+Write-Host "Packaging mode:      framework-dependent (.NET 8 runtime not included)"

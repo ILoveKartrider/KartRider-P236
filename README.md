@@ -37,8 +37,9 @@ scripts/                        빌드·게시·공개 경계 검사
 ## 요구 사항
 
 - 빌드: [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
-- 접속기·서버 런처 GUI 실행: Windows x64와 .NET 8 Windows Desktop Runtime
-- headless 서버 실행: 게시 대상 운영체제의 .NET 8 Runtime
+- 공개 배포본 실행: Windows x64용 [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0)을
+  사용자가 별도로 설치해야 합니다. SDK는 필요하지 않으며, Desktop Runtime 하나로
+  접속기·서버 GUI 런처·headless 서버를 모두 실행할 수 있습니다.
 
 클라이언트는 제공하지 않습니다. 접속기를 사용할 때는 본인이 적법하게 보유한
 지원 설치본만 직접 선택해야 합니다.
@@ -67,14 +68,11 @@ artifacts/publish/connector/
 artifacts/publish/server/
 ```
 
-게시 결과는 framework-dependent입니다. 게임 클라이언트나 런타임 계정 데이터는
-어느 패키지에도 복사되지 않습니다.
-
-.NET 런타임까지 포함한 Windows x64 패키지가 필요하면 다음처럼 게시할 수 있습니다.
-
-```powershell
-./scripts/Publish.ps1 -SelfContained
-```
+게시 결과와 `v0.2.1` 이후 공식 GitHub 릴리스는 framework-dependent입니다. .NET
+런타임은 포함하지 않으므로 사용자가 Windows x64용 .NET 8 Desktop Runtime을 먼저
+설치해야 합니다. 게임 클라이언트와 런타임 계정 데이터도 어느 패키지에도 복사되지
+않습니다. 게시 스크립트는 런타임 payload나 비정상적으로 큰 EXE·패키지가 만들어지면
+실패합니다.
 
 프로젝트는 코드 서명 인증서나 개인 키를 포함하지 않습니다. 공개 바이너리를 배포하는
 운영자는 자신의 코드 서명 절차를 적용하고, 사용자는 신뢰하는 소스에서 직접 빌드하거나

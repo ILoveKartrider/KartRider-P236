@@ -631,14 +631,7 @@ internal static class PreparedClientSettings
 
     private static byte[] RewriteConfig(byte[] original, string address, ushort loginPort)
     {
-        XmlReaderSettings readerSettings = new XmlReaderSettings
-        {
-            DtdProcessing = DtdProcessing.Prohibit,
-            XmlResolver = null
-        };
-        using MemoryStream input = new MemoryStream(original, writable: false);
-        using XmlReader reader = XmlReader.Create(input, readerSettings);
-        XDocument document = XDocument.Load(reader, LoadOptions.PreserveWhitespace);
+        XDocument document = LegacyXml.Load(original, LoadOptions.PreserveWhitespace);
         if (document.Root == null ||
             !string.Equals(document.Root.Name.LocalName, "config", StringComparison.OrdinalIgnoreCase))
         {
@@ -917,6 +910,9 @@ internal static class PreparedClientSettings
             // marker. No live file is changed before the marker is durable.
             try
             {
+                // A pristine format-v1 source may legitimately have different
+                // PIN and XML endpoints. With no marker, only verify that the
+                // live source is configurable before deleting orphan backups.
                 _ = PreparedPinValidator.InspectConfigurable(rootDirectory);
                 CompleteTransaction(transaction);
             }
@@ -933,7 +929,7 @@ internal static class PreparedClientSettings
         {
             // A valid live pair means either both replacements completed or no
             // replacement started. In both cases it is safe to finalize it.
-            _ = PreparedPinValidator.InspectConfigurable(rootDirectory);
+            _ = PreparedPinValidator.InspectConfigurablePair(rootDirectory);
             CompleteTransaction(transaction);
         }
         catch (Exception exception) when (
@@ -956,6 +952,9 @@ internal static class PreparedClientSettings
         byte[] config = File.ReadAllBytes(transaction.ConfigBackupPath);
         WriteAtomically(Path.Combine(rootDirectory, "KartRider.xml"), config);
         WriteAtomically(Path.Combine(rootDirectory, "KartRider.pin"), pin);
+        // Backups can contain the original format-v1 mismatch that the first
+        // preparation is specifically meant to repair. The strict live-pair
+        // check above already decided that rollback was required.
         _ = PreparedPinValidator.InspectConfigurable(rootDirectory);
         CompleteTransaction(transaction);
     }

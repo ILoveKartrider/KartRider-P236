@@ -60,6 +60,7 @@ internal sealed class LegacyEquipment
 
 internal sealed class LegacySessionProfile
 {
+	private byte _licenseLevel;
 	private ushort[] _licenseCompletionMasks;
 
 	public uint UserNo { get; set; }
@@ -78,7 +79,21 @@ internal sealed class LegacySessionProfile
 
 	public short SlotChanger { get; set; }
 
-	public byte LicenseLevel { get; set; }
+	public byte LicenseLevel
+	{
+		get => _licenseLevel;
+		set
+		{
+			if (value > P236LicenseProgress.MaximumLevel)
+			{
+				throw new ArgumentOutOfRangeException(
+					nameof(LicenseLevel),
+					$"P236 license levels must be between 0 and {P236LicenseProgress.MaximumLevel} (L1).");
+			}
+
+			_licenseLevel = value;
+		}
+	}
 
 	public LegacyEquipment Equipment { get; }
 
@@ -106,7 +121,7 @@ internal sealed class LegacySessionProfile
 		Lucci = lucci;
 		SlotChanger = slotChanger;
 		LicenseLevel = licenseLevel;
-		_licenseCompletionMasks = licenseCompletionMasks ?? Array.Empty<ushort>();
+		SetLicenseCompletionMasks(licenseCompletionMasks);
 		Equipment = equipment ?? throw new ArgumentNullException(nameof(equipment));
 	}
 
@@ -118,6 +133,13 @@ internal sealed class LegacySessionProfile
 	public void SetLicenseCompletionMasks(ushort[] masks)
 	{
 		ArgumentNullException.ThrowIfNull(masks);
+		if (masks.Length != P236LicenseProgress.CompletionMaskCount)
+		{
+			throw new ArgumentException(
+				$"Exactly {P236LicenseProgress.CompletionMaskCount} license completion masks are required.",
+				nameof(masks));
+		}
+
 		_licenseCompletionMasks = (ushort[])masks.Clone();
 	}
 

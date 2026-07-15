@@ -92,6 +92,17 @@ internal static class Program
                 Console.WriteLine(
                     $"changed={result.Changed} endpoint={result.PinInfo.LoginEndpoint} " +
                     $"storage={result.PinInfo.StorageRoot}");
+                try
+                {
+                    string catalogPath = ClientInstanceDiscovery.RememberInstance(selection.RootDirectory);
+                    Console.WriteLine($"catalog={catalogPath}");
+                }
+                catch (Exception exception)
+                {
+                    // Portable catalog persistence is best-effort and must not
+                    // turn a successful PIN/XML update into a CLI failure.
+                    Console.Error.WriteLine($"warning: 인스턴스 목록을 저장하지 못했습니다: {exception.Message}");
+                }
                 return 0;
             }
             finally

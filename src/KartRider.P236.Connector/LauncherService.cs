@@ -512,7 +512,7 @@ internal static class LegacyAccountProfile
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
 
         XDocument document = File.Exists(path)
-            ? LoadLegacyXml(path)
+            ? LegacyXml.Load(path, LoadOptions.PreserveWhitespace)
             : new XDocument(new XDeclaration("1.0", "utf-16", null), new XElement("profile"));
 
         if (document.Root == null ||
@@ -545,7 +545,7 @@ internal static class LegacyAccountProfile
                 return null;
             }
 
-            XDocument document = LoadLegacyXml(path);
+            XDocument document = LegacyXml.Load(path, LoadOptions.PreserveWhitespace);
             return document.Root?.Elements().FirstOrDefault(element =>
                 string.Equals(element.Name.LocalName, "username", StringComparison.OrdinalIgnoreCase))?.Value.Trim();
         }
@@ -554,84 +554,6 @@ internal static class LegacyAccountProfile
         {
             return null;
         }
-    }
-
-    private static XDocument LoadLegacyXml(string path)
-    {
-        byte[] bytes = File.ReadAllBytes(path);
-        Encoding encoding;
-        int preambleLength;
-        if (bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF)
-        {
-            encoding = new UTF8Encoding(false, true);
-            preambleLength = 3;
-        }
-        else if (bytes.Length >= 2 && bytes[0] == 0xFF && bytes[1] == 0xFE)
-        {
-            encoding = Encoding.Unicode;
-            preambleLength = 2;
-        }
-        else if (bytes.Length >= 2 && bytes[0] == 0xFE && bytes[1] == 0xFF)
-        {
-            encoding = Encoding.BigEndianUnicode;
-            preambleLength = 2;
-        }
-        else if (LooksLikeUtf16(bytes, littleEndian: true))
-        {
-            encoding = Encoding.Unicode;
-            preambleLength = 0;
-        }
-        else if (LooksLikeUtf16(bytes, littleEndian: false))
-        {
-            encoding = Encoding.BigEndianUnicode;
-            preambleLength = 0;
-        }
-        else
-        {
-            encoding = new UTF8Encoding(false, true);
-            preambleLength = 0;
-        }
-
-        string xml;
-        try
-        {
-            xml = encoding.GetString(bytes, preambleLength, bytes.Length - preambleLength);
-        }
-        catch (DecoderFallbackException)
-        {
-            xml = Encoding.Latin1.GetString(bytes);
-        }
-
-        XmlReaderSettings settings = new XmlReaderSettings
-        {
-            DtdProcessing = DtdProcessing.Prohibit,
-            XmlResolver = null
-        };
-        using StringReader stringReader = new StringReader(xml);
-        using XmlReader reader = XmlReader.Create(stringReader, settings);
-        return XDocument.Load(reader, LoadOptions.PreserveWhitespace);
-    }
-
-    private static bool LooksLikeUtf16(byte[] bytes, bool littleEndian)
-    {
-        int sampleLength = Math.Min(bytes.Length, 128);
-        if (sampleLength < 4)
-        {
-            return false;
-        }
-
-        int expectedNulls = 0;
-        int expectedSlots = 0;
-        for (int index = littleEndian ? 1 : 0; index < sampleLength; index += 2)
-        {
-            expectedSlots++;
-            if (bytes[index] == 0)
-            {
-                expectedNulls++;
-            }
-        }
-
-        return expectedNulls >= Math.Max(2, expectedSlots * 3 / 4);
     }
 
     private static void SaveUtf16Atomically(string path, XDocument document)

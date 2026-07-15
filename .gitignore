@@ -19,6 +19,8 @@ TestResults/
 /Profile/
 item-probabilities.json
 server-launcher.json
+connector-instances.json
+connector-instances.json.lock
 *.log
 *.bak
 *.tmp

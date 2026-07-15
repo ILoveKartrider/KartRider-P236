@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using KartRider.P236.Server;
 
 namespace KartRider;
 
@@ -369,16 +370,18 @@ internal sealed class JsonLegacyProfileStore : ILegacyProfileStore
 				$"Profile '{profile.SourceUsername}' has missing rider data.");
 		}
 
-		if (profile.LicenseLevel > 3)
+		if (profile.LicenseLevel > P236LicenseProgress.MaximumLevel)
 		{
 			throw new InvalidDataException(
 				$"Profile '{profile.SourceUsername}' has unsupported license level {profile.LicenseLevel}.");
 		}
 
-		if (profile.LicenseCompletionMasks == null || profile.LicenseCompletionMasks.Length != 6)
+		if (profile.LicenseCompletionMasks == null ||
+			profile.LicenseCompletionMasks.Length != P236LicenseProgress.CompletionMaskCount)
 		{
 			throw new InvalidDataException(
-				$"Profile '{profile.SourceUsername}' must have six license completion masks.");
+				$"Profile '{profile.SourceUsername}' must have " +
+				$"{P236LicenseProgress.CompletionMaskCount} license completion masks.");
 		}
 	}
 

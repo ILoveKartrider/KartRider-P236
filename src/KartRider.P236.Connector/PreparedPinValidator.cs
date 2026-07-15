@@ -35,14 +35,27 @@ internal static class PreparedPinValidator
     private const int MaximumBmlDepth = 32;
 
     internal static PreparedPinInfo Validate(string rootDirectory) =>
-        ValidateCore(rootDirectory, requirePreparedV2: true);
+        ValidateCore(
+            rootDirectory,
+            requirePreparedV2: true,
+            allowMismatchedOriginalEndpoint: false);
 
     internal static PreparedPinInfo InspectConfigurable(string rootDirectory) =>
-        ValidateCore(rootDirectory, requirePreparedV2: false);
+        ValidateCore(
+            rootDirectory,
+            requirePreparedV2: false,
+            allowMismatchedOriginalEndpoint: true);
+
+    internal static PreparedPinInfo InspectConfigurablePair(string rootDirectory) =>
+        ValidateCore(
+            rootDirectory,
+            requirePreparedV2: false,
+            allowMismatchedOriginalEndpoint: false);
 
     private static PreparedPinInfo ValidateCore(
         string rootDirectory,
-        bool requirePreparedV2)
+        bool requirePreparedV2,
+        bool allowMismatchedOriginalEndpoint)
     {
         string pinPath = Path.Combine(rootDirectory, "KartRider.pin");
         string configPath = Path.Combine(rootDirectory, "KartRider.xml");
@@ -165,20 +178,22 @@ internal static class PreparedPinValidator
         EndpointValue configuredEndpoint = ReadConfiguredEndpoint(configPath);
         EndpointValue? matchingEndpoint = endpoints.FirstOrDefault(endpoint =>
             endpoint.Port == configuredEndpoint.Port && HostsEqual(endpoint.Host, configuredEndpoint.Host));
-        if (matchingEndpoint == null)
+        if (matchingEndpoint == null && !(format == 1 && allowMismatchedOriginalEndpoint))
         {
             throw new InvalidDataException(
                 $"PIN 로그인 서버와 KartRider.xml 서버가 다릅니다 " +
                 $"(PIN={string.Join(", ", endpoints)}, XML={configuredEndpoint}).");
         }
 
+        EndpointValue selectedEndpoint = matchingEndpoint ?? configuredEndpoint;
+
         return new PreparedPinInfo(
             format,
             localeId,
             clientLocation,
             minorVersion,
-            matchingEndpoint.Host,
-            matchingEndpoint.Port,
+            selectedEndpoint.Host,
+            selectedEndpoint.Port,
             endpoints.Select(endpoint => endpoint.ToString()).ToArray(),
             storageRoot);
     }
@@ -368,14 +383,8 @@ internal static class PreparedPinValidator
             throw new FileNotFoundException("준비된 인스턴스에 KartRider.xml이 없습니다.", configPath);
         }
 
-        XmlReaderSettings settings = new XmlReaderSettings
-        {
-            DtdProcessing = DtdProcessing.Prohibit,
-            XmlResolver = null
-        };
         using FileStream stream = new FileStream(configPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-        using XmlReader reader = XmlReader.Create(stream, settings);
-        XDocument document = XDocument.Load(reader);
+        XDocument document = LegacyXml.Load(stream, LoadOptions.None);
         XElement? server = document.Descendants().FirstOrDefault(element =>
             string.Equals(element.Name.LocalName, "server", StringComparison.OrdinalIgnoreCase));
         string? address = server?.Attributes().FirstOrDefault(attribute =>

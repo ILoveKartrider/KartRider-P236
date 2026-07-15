@@ -3859,9 +3859,12 @@ internal static class LegacyMultiplayerHandlers
 			throw new ArgumentOutOfRangeException(nameof(status), "A full 2005 rider slot requires status 2, 3, or 5.");
 		}
 
-		if (completionMasks == null || completionMasks.Count != 6)
+		if (completionMasks == null ||
+			completionMasks.Count != P236LicenseProgress.CompletionMaskCount)
 		{
-			throw new ArgumentException("A 2005 rider slot requires exactly six completion masks.", nameof(completionMasks));
+			throw new ArgumentException(
+				$"A 2005 rider slot requires exactly {P236LicenseProgress.CompletionMaskCount} completion masks.",
+				nameof(completionMasks));
 		}
 
 		if (team > 2)

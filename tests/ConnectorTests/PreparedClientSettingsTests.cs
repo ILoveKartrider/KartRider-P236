@@ -81,6 +81,91 @@ public sealed class PreparedClientSettingsTests
     }
 
     [Fact]
+    public void Apply_AcceptsBomlessUtf16DeclarationAndMismatchedOriginalEndpoint()
+    {
+        using SyntheticClient client = SyntheticClient.Create(flags: 0);
+        const string legacyXmlEndpoint = "203.0.113.20:39400";
+        string legacyXml =
+            "<?xml version='1.0' encoding='UTF-16'?>\r\n" +
+            "<config>\r\n" +
+            $"    <server addr='{legacyXmlEndpoint}'/>\r\n" +
+            "    <fullscreenOff/>\r\n" +
+            "</config>\r\n";
+        File.WriteAllBytes(client.ConfigPath, Encoding.ASCII.GetBytes(legacyXml));
+
+        PreparedPinInfo source = PreparedPinValidator.InspectConfigurable(client.Root);
+        Assert.Equal((byte)1, source.Format);
+        Assert.Equal(legacyXmlEndpoint, source.LoginEndpoint);
+        Assert.Equal(new[] { OriginalEndpoint }, source.LoginEndpoints);
+        Assert.Throws<InvalidDataException>(
+            () => PreparedPinValidator.InspectConfigurablePair(client.Root));
+
+        string storageRoot = "KartRiderP236LegacyXml_" + Guid.NewGuid().ToString("N");
+        PreparedClientSettingsResult result = PreparedClientSettings.Apply(
+            client.Root,
+            UpdatedAddress,
+            UpdatedPort,
+            storageRoot,
+            Array.Empty<RunningClientInspection>(),
+            client.DocumentsRoot);
+
+        Assert.True(result.Changed);
+        Assert.Equal($"{UpdatedAddress}:{UpdatedPort}", result.PinInfo.LoginEndpoint);
+        Assert.All(
+            result.PinInfo.LoginEndpoints,
+            endpoint => Assert.Equal($"{UpdatedAddress}:{UpdatedPort}", endpoint));
+        Assert.Equal(storageRoot, result.PinInfo.StorageRoot);
+
+        byte[] normalizedXml = File.ReadAllBytes(client.ConfigPath);
+        Assert.True(normalizedXml.Length >= 2);
+        Assert.Equal(0xFF, normalizedXml[0]);
+        Assert.Equal(0xFE, normalizedXml[1]);
+        string normalizedText = Encoding.Unicode.GetString(normalizedXml, 2, normalizedXml.Length - 2);
+        Assert.Contains("fullscreenOff", normalizedText);
+        Assert.Contains($"{UpdatedAddress}:{UpdatedPort}", normalizedText);
+        _ = PreparedPinValidator.Validate(client.Root);
+        Assert.False(File.Exists(Path.Combine(client.Root, "KartRider.launcher-settings.transaction")));
+        Assert.False(File.Exists(Path.Combine(client.Root, "KartRider.pin.launcher-settings.bak")));
+        Assert.False(File.Exists(Path.Combine(client.Root, "KartRider.xml.launcher-settings.bak")));
+    }
+
+    [Fact]
+    public void RecoverIfNeeded_RestoresMismatchedV1BackupAfterPartialCommit()
+    {
+        using SyntheticClient client = SyntheticClient.Create(flags: 0);
+        const string legacyXmlEndpoint = "203.0.113.20:39400";
+        byte[] originalXml = Encoding.ASCII.GetBytes(
+            "<?xml version='1.0' encoding='UTF-16'?>\r\n" +
+            $"<config><server addr='{legacyXmlEndpoint}'/><fullscreenOff/></config>\r\n");
+        File.WriteAllBytes(client.ConfigPath, originalXml);
+        byte[] originalPin = File.ReadAllBytes(client.PinPath);
+
+        string marker = Path.Combine(client.Root, "KartRider.launcher-settings.transaction");
+        string pinBackup = Path.Combine(client.Root, "KartRider.pin.launcher-settings.bak");
+        string configBackup = Path.Combine(client.Root, "KartRider.xml.launcher-settings.bak");
+        File.WriteAllBytes(pinBackup, originalPin);
+        File.WriteAllBytes(configBackup, originalXml);
+        File.WriteAllText(marker, "version=1", Encoding.UTF8);
+
+        File.WriteAllText(
+            client.ConfigPath,
+            "<?xml version=\"1.0\" encoding=\"utf-16\"?>" +
+            "<config><server addr=\"192.0.2.99:49999\"/></config>",
+            Encoding.Unicode);
+
+        PreparedClientSettings.RecoverIfNeeded(client.Root);
+
+        Assert.Equal(originalPin, File.ReadAllBytes(client.PinPath));
+        Assert.Equal(originalXml, File.ReadAllBytes(client.ConfigPath));
+        Assert.Equal(
+            legacyXmlEndpoint,
+            PreparedPinValidator.InspectConfigurable(client.Root).LoginEndpoint);
+        Assert.False(File.Exists(marker));
+        Assert.False(File.Exists(pinBackup));
+        Assert.False(File.Exists(configBackup));
+    }
+
+    [Fact]
     public void Apply_FailsClosedBeforeMutationWhenRunningProcessCannotBeInspected()
     {
         using SyntheticClient client = SyntheticClient.Create(flags: 0);

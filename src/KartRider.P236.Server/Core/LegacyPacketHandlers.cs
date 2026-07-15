@@ -1,11 +1,11 @@
 #nullable disable
 using KartRider.IO;
+using KartRider.P236.Server;
 
 namespace KartRider;
 
 internal static class LegacyPacketHandlers
 {
-	private const int CompletionMaskCount = 6;
 	private const int MaximumGameSlotDataLength = 960;
 
 	public static void HandleStartSingle(SessionGroup session, InPacket packet)
@@ -84,11 +84,13 @@ internal static class LegacyPacketHandlers
 	{
 		RequireExactLength(packet, 17, "LoRqUpdateCbPacket");
 		byte updatedRow = packet.ReadByte();
-		if (updatedRow != byte.MaxValue && updatedRow > 3)
+		if (updatedRow != byte.MaxValue && updatedRow > P236LicenseProgress.MaximumLevel)
 		{
-			throw new PacketReadException($"LoRqUpdateCbPacket row {updatedRow} is not supported; this build supports levels 0..3 (L2).");
+			throw new PacketReadException(
+				$"LoRqUpdateCbPacket row {updatedRow} is not supported; " +
+				$"this build supports levels 0..{P236LicenseProgress.MaximumLevel} (L1).");
 		}
-		ushort[] completionMasks = new ushort[CompletionMaskCount];
+		ushort[] completionMasks = new ushort[P236LicenseProgress.CompletionMaskCount];
 		for (int i = 0; i < completionMasks.Length; i++)
 		{
 			completionMasks[i] = packet.ReadUShort();

@@ -16,13 +16,15 @@ public sealed class ProfileStoreTests
         profile.UserId = "alice";
         profile.Nickname = "Alice";
         profile.Equipment.Kart = 17;
+        profile.LicenseLevel = 4;
+        profile.SetLicenseCompletionMasks([31, 7, 31, 63, 21, 0]);
         first.Save(LegacyProfileRecord.FromProfile(profile));
 
         LegacyProfileRecord loaded = Assert.Single(new JsonLegacyProfileStore(path).LoadAll());
         Assert.Equal("alice", loaded.SourceUsername);
         Assert.Equal((uint)42, loaded.UserNo);
         Assert.Equal((ushort)17, loaded.Equipment.Kart);
-        Assert.Equal(3, loaded.LicenseLevel);
-        Assert.Equal(6, loaded.LicenseCompletionMasks.Length);
+        Assert.Equal(4, loaded.LicenseLevel);
+        Assert.Equal([31, 7, 31, 63, 21, 0], loaded.LicenseCompletionMasks);
     }
 }

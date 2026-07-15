@@ -43,9 +43,13 @@ public sealed class P236ServerOptions
             throw new ArgumentException("Data and log directories are required.");
         if (FirstUserNumber == 0)
             throw new ArgumentOutOfRangeException(nameof(FirstUserNumber));
-        if (DefaultLicenseLevel > 3)
-            throw new ArgumentOutOfRangeException(nameof(DefaultLicenseLevel));
-        if (DefaultLicenseCompletionMasks is null || DefaultLicenseCompletionMasks.Length != 6)
-            throw new ArgumentException("Exactly six license completion masks are required.");
+        if (DefaultLicenseLevel > P236LicenseProgress.MaximumLevel)
+            throw new ArgumentOutOfRangeException(
+                nameof(DefaultLicenseLevel),
+                $"P236 license levels must be between 0 and {P236LicenseProgress.MaximumLevel} (L1).");
+        if (DefaultLicenseCompletionMasks is null ||
+            DefaultLicenseCompletionMasks.Length != P236LicenseProgress.CompletionMaskCount)
+            throw new ArgumentException(
+                $"Exactly {P236LicenseProgress.CompletionMaskCount} license completion masks are required.");
     }
 }

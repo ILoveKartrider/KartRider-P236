@@ -20,6 +20,7 @@ internal sealed class MainForm : Form
     private readonly Button _launchButton = new Button();
     private readonly Label _statusLabel = new Label();
     private readonly RichTextBox _logTextBox = new RichTextBox();
+    private bool _suppressInstanceRemember;
 
     internal MainForm()
     {
@@ -199,8 +200,14 @@ internal sealed class MainForm : Form
 
     private void LoadPreparedInstances()
     {
-        IReadOnlyList<ClientInstanceOption> instances = ClientInstanceDiscovery.FindPreparedInstances();
-        foreach (ClientInstanceOption instance in instances)
+        ClientInstanceDiscoveryResult discovery =
+            ClientInstanceDiscovery.DiscoverPreparedInstances();
+        foreach (string warning in discovery.Warnings)
+        {
+            AppendLog($"인스턴스 검색 경고: {warning}");
+        }
+
+        foreach (ClientInstanceOption instance in discovery.Instances)
         {
             _instanceCombo.Items.Add(instance);
             _knownInstanceExecutables.Add(instance.ExecutablePath);
@@ -208,7 +215,31 @@ internal sealed class MainForm : Form
 
         if (_instanceCombo.Items.Count > 0)
         {
-            _instanceCombo.SelectedIndex = 0;
+            int preferredIndex = -1;
+            if (!string.IsNullOrWhiteSpace(discovery.PreferredExecutablePath))
+            {
+                for (int index = 0; index < _instanceCombo.Items.Count; index++)
+                {
+                    if (_instanceCombo.Items[index] is ClientInstanceOption option &&
+                        string.Equals(
+                            option.ExecutablePath,
+                            discovery.PreferredExecutablePath,
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        preferredIndex = index;
+                        break;
+                    }
+                }
+            }
+            _suppressInstanceRemember = true;
+            try
+            {
+                _instanceCombo.SelectedIndex = preferredIndex >= 0 ? preferredIndex : 0;
+            }
+            finally
+            {
+                _suppressInstanceRemember = false;
+            }
             AppendLog($"준비된 인스턴스 {_instanceCombo.Items.Count}개를 찾았습니다.");
         }
         else
@@ -229,6 +260,13 @@ internal sealed class MainForm : Form
         _knownInstanceExecutables.Add(instance.ExecutablePath);
         LoadPinSettings(instance.RootDirectory);
         _statusLabel.Text = instance.Name;
+        if (!_suppressInstanceRemember)
+        {
+            RememberInstanceForNextRun(
+                instance.RootDirectory,
+                instance.Name,
+                logSuccess: false);
+        }
     }
 
     private void BrowseFolderButton_Click(object? sender, EventArgs e)
@@ -281,11 +319,50 @@ internal sealed class MainForm : Form
         {
             ClientSelection selection = ClientSelection.FromPath(path);
             _pathTextBox.Text = selection.RootDirectory;
-            if (OriginalClientValidator.IsKnownOriginal(selection.ExecutablePath))
-            {
-                _knownInstanceExecutables.Add(selection.ExecutablePath);
-            }
+            _ = OriginalClientValidator.ValidateConfigurableClient(selection);
+            _knownInstanceExecutables.Add(selection.ExecutablePath);
             LoadSettingsFromCurrentPath();
+            string displayName = Path.GetFileName(
+                selection.RootDirectory.TrimEnd(
+                    Path.DirectorySeparatorChar,
+                    Path.AltDirectorySeparatorChar));
+            if (string.IsNullOrWhiteSpace(displayName))
+            {
+                displayName = "KartRider";
+            }
+            RememberInstanceForNextRun(selection.RootDirectory, displayName);
+
+            int matchingIndex = -1;
+            for (int index = 0; index < _instanceCombo.Items.Count; index++)
+            {
+                if (_instanceCombo.Items[index] is ClientInstanceOption option &&
+                    string.Equals(
+                        option.ExecutablePath,
+                        selection.ExecutablePath,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    matchingIndex = index;
+                    break;
+                }
+            }
+            if (matchingIndex < 0)
+            {
+                matchingIndex = _instanceCombo.Items.Add(new ClientInstanceOption(
+                    displayName,
+                    selection.RootDirectory,
+                    selection.ExecutablePath,
+                    LegacyAccountProfile.TryReadUsername(selection.RootDirectory)));
+            }
+
+            _suppressInstanceRemember = true;
+            try
+            {
+                _instanceCombo.SelectedIndex = matchingIndex;
+            }
+            finally
+            {
+                _suppressInstanceRemember = false;
+            }
             _statusLabel.Text = "선택됨";
         }
         catch (Exception exception)
@@ -368,6 +445,7 @@ internal sealed class MainForm : Form
                 progress);
 
             _knownInstanceExecutables.Add(selection.ExecutablePath);
+            RememberInstanceForNextRun(selection.RootDirectory);
             _statusLabel.Text = $"실행됨 (PID {result.ProcessId})";
         }
         catch (Exception exception)
@@ -409,6 +487,7 @@ internal sealed class MainForm : Form
             AppendLog(
                 $"{_statusLabel.Text}: {result.PinInfo.LoginEndpoint}, " +
                 $"storage={result.PinInfo.StorageRoot}");
+            RememberInstanceForNextRun(selection.RootDirectory);
         }
         catch (Exception exception)
         {
@@ -417,6 +496,27 @@ internal sealed class MainForm : Form
         finally
         {
             SetBusy(false);
+        }
+    }
+
+    private void RememberInstanceForNextRun(
+        string rootDirectory,
+        string? displayName = null,
+        bool logSuccess = true)
+    {
+        try
+        {
+            string catalogPath = ClientInstanceDiscovery.RememberInstance(rootDirectory, displayName);
+            if (logSuccess)
+            {
+                AppendLog($"휴대형 인스턴스 목록 저장: {catalogPath}");
+            }
+        }
+        catch (Exception exception)
+        {
+            // Catalog persistence is a convenience. A successful settings
+            // update or game launch must not be turned into a failure here.
+            AppendLog($"인스턴스 목록 저장 경고: {exception.Message}");
         }
     }
 

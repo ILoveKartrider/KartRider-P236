@@ -27,7 +27,8 @@ $forbiddenSegmentPatterns = @(
 $forbiddenNames = @(
     'KartRider.exe', 'KartRider.pin', 'KartRider.xml', 'launcher.xml',
     'profiles.json', 'observers.json', 'item-probabilities.json',
-    'server-launcher.json', 'p236-packets.log', '.gitmodules'
+    'server-launcher.json', 'connector-instances.json',
+    'connector-instances.json.lock', 'p236-packets.log', '.gitmodules'
 )
 $forbiddenExtensions = @(
     '.exe', '.dll', '.pdb', '.rho', '.rho5', '.bml', '.ksv', '.1s', '.sg',

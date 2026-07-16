@@ -728,7 +728,9 @@ internal static class LegacyPacketTrace
 			[0x689508F5u] = "ChSecedeRoomReplyPacket",
 			[0x53410808u] = "GrRequestStartPacket",
 			[0x42F1072Bu] = "GrReplyStartPacket",
-			[0x50EC07DEu] = "GrCommandStartPacket"
+			[0x50EC07DEu] = "GrCommandStartPacket",
+			[0x39E70693u] = "GrRiderTalkPacket",
+			[0x395F0686u] = "GrRiderEchoPacket"
 		};
 	private static string TracePath => Path.Combine(
 		ServerRuntime.Options.LogDirectory,
@@ -819,6 +821,7 @@ internal static class LegacyMultiplayerHandlers
 	private const uint RaceCountdownMilliseconds = 3000u;
 	private const uint FlagOvertimeTransitionPaddingMilliseconds = 2000u;
 	private const uint FlagRaceMilliseconds = 180000u;
+	private const int MaximumRoomChatCharacters = 255;
 
 	private static readonly uint PqChannelSwitch = Hash("PqChannelSwitch");
 	private static readonly uint PqChannelMovein = Hash("PqChannelMovein");
@@ -829,6 +832,7 @@ internal static class LegacyMultiplayerHandlers
 	private static readonly uint ChSecedeRoomRequest = Hash("ChSecedeRoomRequestPacket");
 	private static readonly uint ChClientUdpAddr = Hash("ChClientUdpAddrPacket");
 	private static readonly uint GrFirstRequest = Hash("GrFirstRequestPacket");
+	private static readonly uint GrRiderTalk = Hash("GrRiderTalkPacket");
 	private static readonly uint GrChangeTeam = Hash("GrChangeTeamPacket");
 	private static readonly uint GrChangeTrack = Hash("GrChangeTrackPacket");
 	private static readonly uint GrRequestSetSlotState = Hash("GrRequestSetSlotStatePacket");
@@ -986,6 +990,12 @@ internal static class LegacyMultiplayerHandlers
 		if (hash == GrFirstRequest)
 		{
 			HandleFirstRoomRequest(session);
+			return true;
+		}
+
+		if (hash == GrRiderTalk)
+		{
+			HandleRoomTalk(session, packet);
 			return true;
 		}
 
@@ -1943,6 +1953,69 @@ internal static class LegacyMultiplayerHandlers
 		LegacyPacketTrace.LogEvent(
 			$"[2005 MP] Initialized room id={room.Id} slot={member.SlotId}; " +
 			"broadcast initial session slots.");
+	}
+
+	private static void HandleRoomTalk(SessionGroup session, InPacket packet)
+	{
+		RequireAvailableAtLeast(packet, 8, "GrRiderTalkPacket");
+		string message = packet.ReadString();
+		RequireAvailable(packet, 4, "GrRiderTalkPacket trailing flags");
+		uint flags = packet.ReadUInt();
+		RequireConsumed(packet, "GrRiderTalkPacket");
+
+		if (message.Length == 0 || message.Length > MaximumRoomChatCharacters)
+		{
+			LegacyPacketTrace.LogEvent(
+				$"[2005 CHAT] Dropped room chat with invalid length={message.Length}; flags={flags}.");
+			return;
+		}
+
+		LegacyRoom room = LegacyRoomManager.GetFor(session);
+		if (room == null)
+		{
+			LegacyPacketTrace.LogEvent(
+				$"[2005 CHAT] Dropped room chat without room; length={message.Length}, flags={flags}.");
+			return;
+		}
+
+		int senderSlot = -1;
+		List<SessionGroup> targets = new List<SessionGroup>();
+		lock (room.SyncRoot)
+		{
+			LegacyRoomMember sender = FindMember(room, session);
+			if (sender != null && sender.Initialized)
+			{
+				senderSlot = sender.SlotId;
+				foreach (LegacyRoomMember member in room.Members)
+				{
+					if (member != null && member.Initialized &&
+						!ReferenceEquals(member.Session, session))
+					{
+						targets.Add(member.Session);
+					}
+				}
+			}
+		}
+
+		if (senderSlot < 0)
+		{
+			LegacyPacketTrace.LogEvent(
+				$"[2005 CHAT] Dropped room chat from uninitialized member in room={room.Id}; " +
+				$"length={message.Length}, flags={flags}.");
+			return;
+		}
+
+		using OutPacket echo = new OutPacket("GrRiderEchoPacket");
+		echo.WriteInt(senderSlot);
+		echo.WriteString(message);
+		foreach (SessionGroup target in targets)
+		{
+			target.Client.Send(echo);
+		}
+
+		LegacyPacketTrace.LogEvent(
+			$"[2005 CHAT] Relayed room={room.Id}, senderSlot={senderSlot}, " +
+			$"length={message.Length}, flags={flags}, targets={targets.Count}.");
 	}
 
 	private static void HandleSetSlotState(SessionGroup session, InPacket packet)

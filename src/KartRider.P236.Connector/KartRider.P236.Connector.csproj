@@ -25,4 +25,7 @@
   <ItemGroup>
     <InternalsVisibleTo Include="KartRider.P236.Connector.Tests" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\KartRider.P236.ItemProbabilities\KartRider.P236.ItemProbabilities.csproj" />
+  </ItemGroup>
 </Project>

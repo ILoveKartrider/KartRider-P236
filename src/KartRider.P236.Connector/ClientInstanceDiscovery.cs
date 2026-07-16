@@ -10,7 +10,8 @@ internal sealed record ClientInstanceOption(
     string Name,
     string RootDirectory,
     string ExecutablePath,
-    string? Username)
+    string? Username,
+    bool ApplyL1CompatibilityHooks = true)
 {
     public override string ToString() => $"{Name}  —  {RootDirectory}";
 }
@@ -83,7 +84,8 @@ internal static class ClientInstanceDiscovery
                 {
                     candidates.Add(new ClientInstanceCandidate(
                         NormalizeDisplayName(entry.Name, root),
-                        root));
+                        root,
+                        entry.ApplyL1CompatibilityHooks));
                 }
             }
         }
@@ -154,13 +156,19 @@ internal static class ClientInstanceDiscovery
 
     internal static string RememberInstance(
         string rootDirectory,
-        string? displayName = null) =>
-        RememberInstance(AppContext.BaseDirectory, rootDirectory, displayName);
+        string? displayName = null,
+        bool? applyL1CompatibilityHooks = null) =>
+        RememberInstance(
+            AppContext.BaseDirectory,
+            rootDirectory,
+            displayName,
+            applyL1CompatibilityHooks);
 
     internal static string RememberInstance(
         string connectorDirectory,
         string rootDirectory,
-        string? displayName = null)
+        string? displayName,
+        bool? applyL1CompatibilityHooks = null)
     {
         string baseDirectory = NormalizeDirectory(connectorDirectory);
         string root = NormalizeDirectory(rootDirectory);
@@ -201,7 +209,8 @@ internal static class ClientInstanceDiscovery
             existing = new PortableInstanceEntry
             {
                 Name = NormalizeDisplayName(displayName, root),
-                Path = storedPath
+                Path = storedPath,
+                ApplyL1CompatibilityHooks = applyL1CompatibilityHooks
             };
             catalog.Instances.Add(existing);
         }
@@ -211,6 +220,10 @@ internal static class ClientInstanceDiscovery
                 string.IsNullOrWhiteSpace(displayName) ? existing.Name : displayName,
                 root);
             existing.Path = storedPath;
+            if (applyL1CompatibilityHooks.HasValue)
+            {
+                existing.ApplyL1CompatibilityHooks = applyL1CompatibilityHooks;
+            }
         }
 
         for (int index = catalog.Instances.Count - 1; index >= 0; index--)
@@ -293,7 +306,8 @@ internal static class ClientInstanceDiscovery
                     NormalizeDisplayName(candidate.Name, root),
                     root,
                     executable,
-                    usernameReader(root)));
+                    usernameReader(root),
+                    candidate.ApplyL1CompatibilityHooks ?? true));
         }
         catch (Exception exception) when (IsDiscoveryException(exception))
         {
@@ -541,7 +555,10 @@ internal static class ClientInstanceDiscovery
         exception is IOException or UnauthorizedAccessException or InvalidOperationException or XmlException or
         JsonException or ArgumentException or NotSupportedException or OverflowException;
 
-    private sealed record ClientInstanceCandidate(string Name, string RootDirectory);
+    private sealed record ClientInstanceCandidate(
+        string Name,
+        string RootDirectory,
+        bool? ApplyL1CompatibilityHooks = null);
 
     private sealed class PortableCatalog
     {
@@ -554,5 +571,6 @@ internal static class ClientInstanceDiscovery
     {
         public string? Name { get; set; }
         public string? Path { get; set; }
+        public bool? ApplyL1CompatibilityHooks { get; set; }
     }
 }

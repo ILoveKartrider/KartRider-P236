@@ -62,6 +62,7 @@ internal sealed class LegacySessionProfile
 {
 	private byte _licenseLevel;
 	private ushort[] _licenseCompletionMasks;
+	internal object PersistenceSyncRoot { get; } = new();
 
 	public uint UserNo { get; set; }
 

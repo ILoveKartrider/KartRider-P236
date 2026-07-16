@@ -12,7 +12,7 @@ internal enum ItemProbabilityTransactionPhase
 internal sealed class P236ItemProbabilityTransaction : IDisposable
 {
     internal const string MarkerFileName = ".p236-item-probabilities.recovery.json";
-    internal const string LockFileName = ".p236-item-probabilities.lock";
+    internal const string LockFileName = P236DataMutationLock.FileName;
     internal const string ItemBackupFileName = "item.rho.p236-item-probabilities.bak";
     internal const string MetadataBackupFileName = "aaa.pk.p236-item-probabilities.bak";
     private const string TransactionPrefix = ".p236-item-probabilities-txn-";

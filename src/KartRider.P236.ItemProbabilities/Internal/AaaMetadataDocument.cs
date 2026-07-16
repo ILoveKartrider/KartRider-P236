@@ -115,7 +115,12 @@ internal sealed class AaaMetadataDocument
 
     internal void UpdateItemArchive(RhoArchiveMetadata metadata)
     {
-        BinaryXmlNode entry = GetItemArchiveEntry();
+        UpdateArchive("item.rho", metadata);
+    }
+
+    internal void UpdateArchive(string fileName, RhoArchiveMetadata metadata)
+    {
+        BinaryXmlNode entry = GetArchiveEntry(fileName);
         entry.SetAttribute("key", metadata.Key.ToString(CultureInfo.InvariantCulture));
         entry.SetAttribute("dataHash", metadata.DataHash.ToString(CultureInfo.InvariantCulture));
         entry.SetAttribute("mediaSize", metadata.MediaSize.ToString(CultureInfo.InvariantCulture));
@@ -123,13 +128,104 @@ internal sealed class AaaMetadataDocument
 
     internal void ValidateItemArchive(RhoArchiveMetadata metadata)
     {
-        BinaryXmlNode entry = GetItemArchiveEntry();
+        ValidateArchive("item.rho", metadata);
+    }
+
+    internal void ValidateArchive(string fileName, RhoArchiveMetadata metadata)
+    {
+        BinaryXmlNode entry = GetArchiveEntry(fileName);
         if (entry.GetAttribute("key") != metadata.Key.ToString(CultureInfo.InvariantCulture) ||
             entry.GetAttribute("dataHash") != metadata.DataHash.ToString(CultureInfo.InvariantCulture) ||
             entry.GetAttribute("mediaSize") != metadata.MediaSize.ToString(CultureInfo.InvariantCulture))
         {
-            throw new InvalidDataException("aaa.pk item.rho metadata does not match the generated archive.");
+            throw new InvalidDataException(
+                $"aaa.pk metadata for '{fileName}' does not match the generated archive.");
         }
+    }
+
+    internal bool ContainsArchive(string fileName) =>
+        FindArchiveEntries(fileName).Count != 0;
+
+    internal void EnsureArchiveEntryFrom(AaaMetadataDocument source, string fileName)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        List<BinaryXmlNode> existing = FindArchiveEntries(fileName);
+        if (existing.Count > 1)
+        {
+            throw new InvalidDataException(
+                $"aaa.pk contains more than one RhoFolder entry for '{fileName}'.");
+        }
+
+        if (existing.Count == 1)
+        {
+            return;
+        }
+
+        List<BinaryXmlNode> sourcePath = source.GetArchivePath(fileName);
+        if (sourcePath.Count < 2)
+        {
+            throw new InvalidDataException(
+                $"Donor aaa.pk has an invalid hierarchy for '{fileName}'.");
+        }
+
+        BinaryXmlNode targetParent = Root;
+        for (int index = 1; index < sourcePath.Count - 1; index++)
+        {
+            BinaryXmlNode sourceFolder = sourcePath[index];
+            if (!string.Equals(sourceFolder.Name, "PackFolder", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidDataException(
+                    $"Donor aaa.pk hierarchy for '{fileName}' contains an unsupported node.");
+            }
+
+            string? folderName = sourceFolder.GetAttribute("name");
+            BinaryXmlNode? targetFolder = targetParent.Children.FirstOrDefault(child =>
+                string.Equals(child.Name, "PackFolder", StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(child.GetAttribute("name"), folderName, StringComparison.OrdinalIgnoreCase));
+            if (targetFolder is null)
+            {
+                targetFolder = CloneNode(sourceFolder, includeChildren: false);
+                targetParent.Children.Add(targetFolder);
+            }
+
+            targetParent = targetFolder;
+        }
+
+        targetParent.Children.Add(CloneNode(sourcePath[^1], includeChildren: true));
+    }
+
+    internal void SortArchiveEntriesInPackFolder(string folderName)
+    {
+        List<BinaryXmlNode> matches = BinaryXmlCodec.Enumerate(Root)
+            .Where(node =>
+                string.Equals(node.Name, "PackFolder", StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(
+                    node.GetAttribute("name"),
+                    folderName,
+                    StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        if (matches.Count != 1)
+        {
+            throw new InvalidDataException(
+                $"aaa.pk must contain exactly one PackFolder named '{folderName}'.");
+        }
+
+        BinaryXmlNode folder = matches[0];
+        if (folder.Children.Any(child =>
+                !string.Equals(child.Name, "RhoFolder", StringComparison.OrdinalIgnoreCase) ||
+                string.IsNullOrWhiteSpace(child.GetAttribute("fileName"))))
+        {
+            throw new InvalidDataException(
+                $"aaa.pk PackFolder '{folderName}' contains an unsupported child node.");
+        }
+
+        List<BinaryXmlNode> ordered = folder.Children
+            .OrderBy(
+                child => child.GetAttribute("fileName"),
+                StringComparer.Ordinal)
+            .ToList();
+        folder.Children.Clear();
+        folder.Children.AddRange(ordered);
     }
 
     internal void Save(string path)
@@ -150,18 +246,88 @@ internal sealed class AaaMetadataDocument
         stream.Flush(flushToDisk: true);
     }
 
-    private BinaryXmlNode GetItemArchiveEntry()
+    private BinaryXmlNode GetArchiveEntry(string fileName)
     {
-        List<BinaryXmlNode> matches = BinaryXmlCodec.Enumerate(Root)
-            .Where(node =>
-                string.Equals(node.Name, "RhoFolder", StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(node.GetAttribute("fileName"), "item.rho", StringComparison.OrdinalIgnoreCase))
-            .ToList();
+        List<BinaryXmlNode> matches = FindArchiveEntries(fileName);
         if (matches.Count != 1)
         {
-            throw new InvalidDataException("aaa.pk must contain exactly one item.rho RhoFolder entry.");
+            throw new InvalidDataException(
+                $"aaa.pk must contain exactly one RhoFolder entry for '{fileName}'.");
         }
 
         return matches[0];
+    }
+
+    private List<BinaryXmlNode> FindArchiveEntries(string fileName)
+    {
+        if (string.IsNullOrWhiteSpace(fileName) ||
+            !string.Equals(Path.GetFileName(fileName), fileName, StringComparison.Ordinal))
+        {
+            throw new ArgumentException("An RHO base file name is required.", nameof(fileName));
+        }
+
+        return BinaryXmlCodec.Enumerate(Root)
+            .Where(node =>
+                string.Equals(node.Name, "RhoFolder", StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(node.GetAttribute("fileName"), fileName, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+    }
+
+    private List<BinaryXmlNode> GetArchivePath(string fileName)
+    {
+        List<BinaryXmlNode> path = new();
+        if (!TryFindArchivePath(Root, fileName, path))
+        {
+            throw new InvalidDataException(
+                $"Donor aaa.pk does not contain a RhoFolder entry for '{fileName}'.");
+        }
+
+        return path;
+    }
+
+    private static bool TryFindArchivePath(
+        BinaryXmlNode node,
+        string fileName,
+        List<BinaryXmlNode> path)
+    {
+        path.Add(node);
+        if (string.Equals(node.Name, "RhoFolder", StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(node.GetAttribute("fileName"), fileName, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        foreach (BinaryXmlNode child in node.Children)
+        {
+            if (TryFindArchivePath(child, fileName, path))
+            {
+                return true;
+            }
+        }
+
+        path.RemoveAt(path.Count - 1);
+        return false;
+    }
+
+    private static BinaryXmlNode CloneNode(BinaryXmlNode source, bool includeChildren)
+    {
+        BinaryXmlNode clone = new(source.Name)
+        {
+            Text = source.Text,
+        };
+        foreach (BinaryXmlAttribute attribute in source.Attributes)
+        {
+            clone.Attributes.Add(new BinaryXmlAttribute(attribute.Name, attribute.Value));
+        }
+
+        if (includeChildren)
+        {
+            foreach (BinaryXmlNode child in source.Children)
+            {
+                clone.Children.Add(CloneNode(child, includeChildren: true));
+            }
+        }
+
+        return clone;
     }
 }

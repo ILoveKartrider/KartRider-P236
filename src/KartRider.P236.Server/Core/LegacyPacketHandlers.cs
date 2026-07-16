@@ -97,17 +97,7 @@ internal static class LegacyPacketHandlers
 		}
 
 		uint rewardId = packet.ReadUInt();
-		LegacySessionProfile profile = session.Profile;
-		if (updatedRow == byte.MaxValue)
-		{
-			profile.SetLicenseCompletionMasks(completionMasks);
-		}
-		else
-		{
-			profile.LicenseLevel = updatedRow;
-			profile.SetLicenseCompletionMasks(completionMasks);
-		}
-		RouterListener.SaveProfile(session);
+		RouterListener.UpdateLicenseProgress(session, updatedRow, completionMasks);
 		session.SingleRace.LastCompletionRow = updatedRow;
 		session.SingleRace.LastCompletionRewardId = rewardId;
 		session.SingleRace.IsActive = false;

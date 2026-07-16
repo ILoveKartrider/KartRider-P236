@@ -97,26 +97,34 @@ internal static class ProtocolResponses
 
     public static void SendInventory(SessionGroup session)
     {
-        SendInventoryCategory(session, 3, 72, 1);
-        SendInventoryCategory(session, 1, 16, 1);
-        SendInventoryCategory(session, 11, 6, 30_000);
-        SendInventoryCategory(session, 8, 5, 1);
-        SendInventoryCategory(session, 9, 25, 30_000);
-        SendInventoryCategory(session, 7, 1, session.Profile.SlotChanger);
-        SendInventoryCategory(session, 13, 1, 1);
-        SendInventoryCategory(session, 6, 2, 1);
-        SendInventoryCategory(session, 10, 2, 1);
-        SendInventoryCategory(session, 14, 6, 1);
-        SendInventoryCategory(session, 4, 43, 1);
-        SendInventoryCategory(session, 2, 11, 1);
+        // The basic practice kart is P236's category-3 pseudo-item 0; normal
+        // itemTable kart entries begin at 1.
+        SendInventoryCategory(session, 3, 0, 73, 1);
+        SendInventoryCategory(session, 1, 1, 16, 1);
+        SendInventoryCategory(session, 11, 1, 6, 30_000);
+        SendInventoryCategory(session, 8, 1, 5, 1);
+        SendInventoryCategory(session, 9, 1, 25, 30_000);
+        SendInventoryCategory(session, 7, 1, 1, session.Profile.SlotChanger);
+        SendInventoryCategory(session, 13, 1, 1, 1);
+        SendInventoryCategory(session, 6, 1, 2, 1);
+        SendInventoryCategory(session, 10, 1, 2, 1);
+        SendInventoryCategory(session, 14, 1, 6, 1);
+        SendInventoryCategory(session, 4, 1, 43, 1);
+        SendInventoryCategory(session, 2, 1, 11, 1);
     }
 
-    private static void SendInventoryCategory(SessionGroup session, short category, short count, short quantity)
+    private static void SendInventoryCategory(
+        SessionGroup session,
+        short category,
+        short firstItem,
+        short count,
+        short quantity)
     {
         using OutPacket packet = new("LoRpGetRiderItemPacket");
         packet.WriteInt(count);
-        for (short item = 1; item <= count; item++)
+        for (int offset = 0; offset < count; offset++)
         {
+            short item = checked((short)(firstItem + offset));
             packet.WriteShort(category);
             packet.WriteShort(item);
             packet.WriteShort(quantity);

@@ -30,6 +30,20 @@ public static class P236ItemProbabilityArchive
         using P236ItemProbabilityTransaction transaction =
             P236ItemProbabilityTransaction.Acquire(paths.DataDirectory);
         bool recovered = transaction.RecoverIfNeeded();
+        string l1InstallPath = Path.Combine(
+            paths.DataDirectory,
+            P236L1DataTransaction.InstallFileName);
+        string l1RecoveryPath = Path.Combine(
+            paths.DataDirectory,
+            P236L1DataTransaction.MarkerFileName);
+        if (File.Exists(l1InstallPath) || File.Exists(l1RecoveryPath))
+        {
+            throw new InvalidOperationException(
+                "L1 클라이언트 데이터가 설치 또는 복구 대기 중입니다. " +
+                "접속기에서 L1 데이터를 먼저 원본 복원한 뒤 아이템 확률을 적용하고, " +
+                "마지막에 L1 데이터를 다시 준비하세요.");
+        }
+
         P236ItemProbabilityTransaction.TransactionFiles files =
             transaction.Prepare(paths.ItemArchivePath, paths.MetadataPath);
 

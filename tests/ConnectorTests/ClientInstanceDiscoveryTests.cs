@@ -14,7 +14,11 @@ public sealed class ClientInstanceDiscoveryTests
         string client1 = CreateClient(Path.Combine(package, "clients", "client1"));
         string client2 = CreateClient(Path.Combine(package, "clients", "client2"));
         string external = CreateClient(Path.Combine(temporary.Path, "external"));
-        _ = ClientInstanceDiscovery.RememberInstance(package, client1, "Portable One");
+        _ = ClientInstanceDiscovery.RememberInstance(
+            package,
+            client1,
+            "Portable One",
+            applyL1CompatibilityHooks: false);
 
         ClientInstanceDiscoveryResult result = ClientInstanceDiscovery.DiscoverPreparedInstances(
             package,
@@ -33,6 +37,7 @@ public sealed class ClientInstanceDiscoveryTests
             string.Equals(instance.RootDirectory, client1, StringComparison.OrdinalIgnoreCase)));
         Assert.Equal("Portable One", manifest.Name);
         Assert.Equal("client1-user", manifest.Username);
+        Assert.False(manifest.ApplyL1CompatibilityHooks);
         Assert.Contains(result.Instances, instance =>
             string.Equals(instance.RootDirectory, package, StringComparison.OrdinalIgnoreCase));
         Assert.Contains(result.Instances, instance =>
@@ -41,6 +46,96 @@ public sealed class ClientInstanceDiscoveryTests
             string.Equals(instance.RootDirectory, external, StringComparison.OrdinalIgnoreCase));
         Assert.Equal(Path.Combine(client1, "KartRider.exe"), result.PreferredExecutablePath);
         Assert.Empty(result.Warnings);
+    }
+
+    [Fact]
+    public void LegacyCatalogDefaultsL1CompatibilityHooksToEnabled()
+    {
+        using TemporaryDirectory temporary = new TemporaryDirectory();
+        string package = Path.Combine(temporary.Path, "package");
+        string legacyClient = CreateClient(Path.Combine(package, "clients", "legacy"));
+        string nullableClient = CreateClient(Path.Combine(package, "clients", "nullable"));
+        File.WriteAllText(
+            Path.Combine(package, ClientInstanceDiscovery.CatalogFileName),
+            """
+            {
+              "version": 1,
+              "lastSelectedPath": "clients/legacy",
+              "instances": [
+                { "name": "Legacy", "path": "clients/legacy" },
+                {
+                  "name": "Explicit Null",
+                  "path": "clients/nullable",
+                  "applyL1CompatibilityHooks": null
+                }
+              ]
+            }
+            """,
+            new UTF8Encoding(false));
+
+        ClientInstanceDiscoveryResult result = ClientInstanceDiscovery.DiscoverPreparedInstances(
+            package,
+            Array.Empty<(string Name, string Root)>(),
+            File.Exists,
+            File.Exists,
+            _ => { },
+            _ => null);
+
+        Assert.Equal(2, result.Instances.Count);
+        Assert.Contains(result.Instances, instance =>
+            string.Equals(instance.RootDirectory, legacyClient, StringComparison.OrdinalIgnoreCase) &&
+            instance.ApplyL1CompatibilityHooks);
+        Assert.Contains(result.Instances, instance =>
+            string.Equals(instance.RootDirectory, nullableClient, StringComparison.OrdinalIgnoreCase) &&
+            instance.ApplyL1CompatibilityHooks);
+    }
+
+    [Fact]
+    public void L1CompatibilityHookPreferenceRoundTripsAndNullPreservesExistingValue()
+    {
+        using TemporaryDirectory temporary = new TemporaryDirectory();
+        string package = Path.Combine(temporary.Path, "package");
+        string client = CreateClient(Path.Combine(package, "clients", "client1"));
+
+        _ = ClientInstanceDiscovery.RememberInstance(
+            package,
+            client,
+            "Client One",
+            applyL1CompatibilityHooks: false);
+        Assert.False(DiscoverSingle(package).ApplyL1CompatibilityHooks);
+
+        _ = ClientInstanceDiscovery.RememberInstance(
+            package,
+            client,
+            "Renamed Client",
+            applyL1CompatibilityHooks: null);
+        ClientInstanceOption preserved = DiscoverSingle(package);
+        Assert.Equal("Renamed Client", preserved.Name);
+        Assert.False(preserved.ApplyL1CompatibilityHooks);
+
+        _ = ClientInstanceDiscovery.RememberInstance(
+            package,
+            client,
+            displayName: null,
+            applyL1CompatibilityHooks: true);
+        Assert.True(DiscoverSingle(package).ApplyL1CompatibilityHooks);
+    }
+
+    [Fact]
+    public void AutomaticallyDiscoveredInstancesDefaultL1CompatibilityHooksToEnabled()
+    {
+        using TemporaryDirectory temporary = new TemporaryDirectory();
+        string package = CreateClient(Path.Combine(temporary.Path, "package"));
+
+        ClientInstanceDiscoveryResult result = ClientInstanceDiscovery.DiscoverPreparedInstances(
+            package,
+            Array.Empty<(string Name, string Root)>(),
+            File.Exists,
+            File.Exists,
+            _ => { },
+            _ => null);
+
+        Assert.True(Assert.Single(result.Instances).ApplyL1CompatibilityHooks);
     }
 
     [Fact]
@@ -128,6 +223,15 @@ public sealed class ClientInstanceDiscoveryTests
         File.WriteAllBytes(Path.Combine(root, "KartRider.exe"), [0x4D, 0x5A]);
         return Path.GetFullPath(root);
     }
+
+    private static ClientInstanceOption DiscoverSingle(string package) =>
+        Assert.Single(ClientInstanceDiscovery.DiscoverPreparedInstances(
+            package,
+            Array.Empty<(string Name, string Root)>(),
+            File.Exists,
+            File.Exists,
+            _ => { },
+            _ => null).Instances);
 
     private sealed class TemporaryDirectory : IDisposable
     {

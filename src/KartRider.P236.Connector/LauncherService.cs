@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Security.Principal;
@@ -171,6 +172,7 @@ internal sealed class LauncherService
 {
     private readonly SemaphoreSlim _launchGate = new SemaphoreSlim(1, 1);
     private readonly MutexReleaseService _mutexReleaseService = new MutexReleaseService();
+    private readonly P236RuntimePatchService _runtimePatchService = new P236RuntimePatchService();
 
     internal async Task<LaunchResult> LaunchAsync(
         ClientSelection selection,
@@ -178,6 +180,7 @@ internal sealed class LauncherService
         string serverAddress,
         ushort loginPort,
         string storageRoot,
+        bool applyL1CompatibilityHooks,
         IEnumerable<string> knownInstanceExecutables,
         IProgress<string>? progress,
         CancellationToken cancellationToken = default)
@@ -192,6 +195,7 @@ internal sealed class LauncherService
                     serverAddress,
                     loginPort,
                     storageRoot,
+                    applyL1CompatibilityHooks,
                     knownInstanceExecutables,
                     progress,
                     cancellationToken),
@@ -209,6 +213,7 @@ internal sealed class LauncherService
         string serverAddress,
         ushort loginPort,
         string storageRoot,
+        bool applyL1CompatibilityHooks,
         IEnumerable<string> knownInstanceExecutables,
         IProgress<string>? progress,
         CancellationToken cancellationToken)
@@ -247,6 +252,7 @@ internal sealed class LauncherService
                 serverAddress,
                 loginPort,
                 storageRoot,
+                applyL1CompatibilityHooks,
                 knownInstanceExecutables,
                 progress,
                 cancellationToken);
@@ -266,6 +272,7 @@ internal sealed class LauncherService
         string serverAddress,
         ushort loginPort,
         string storageRoot,
+        bool applyL1CompatibilityHooks,
         IEnumerable<string> knownInstanceExecutables,
         IProgress<string>? progress,
         CancellationToken cancellationToken)
@@ -376,8 +383,58 @@ internal sealed class LauncherService
                 $"KartRider.exe가 시작 직후 종료했습니다 (PID {process.Id}, exit={process.ExitCode}). " +
                 "실행 중인 다른 인스턴스와 PIN/서버 설정을 확인하세요.");
         }
+        try
+        {
+            _ = ApplyL1CompatibilityHooksIfEnabled(
+                applyL1CompatibilityHooks,
+                () => _runtimePatchService.Apply(process, progress, cancellationToken),
+                progress);
+        }
+        catch
+        {
+            StopFailedPatchedLaunch(process, progress);
+            throw;
+        }
         progress?.Report($"실행 완료: PID {process.Id}, username={normalizedUsername}");
         return new LaunchResult(process.Id, selection.RootDirectory, normalizedUsername);
+    }
+
+    internal static bool ApplyL1CompatibilityHooksIfEnabled(
+        bool enabled,
+        Action apply,
+        IProgress<string>? progress)
+    {
+        ArgumentNullException.ThrowIfNull(apply);
+        if (!enabled)
+        {
+            progress?.Report("L1 호환 훅 적용 안 함: 원본 동작으로 실행합니다.");
+            return false;
+        }
+
+        apply();
+        return true;
+    }
+
+    private static void StopFailedPatchedLaunch(Process process, IProgress<string>? progress)
+    {
+        try
+        {
+            process.Refresh();
+            if (process.HasExited)
+            {
+                return;
+            }
+
+            progress?.Report(
+                $"L1 호환 훅 적용 실패로 PID {process.Id}를 종료해 패치되지 않은 인스턴스를 정리합니다.");
+            process.Kill(entireProcessTree: true);
+            _ = process.WaitForExit(3000);
+        }
+        catch (Exception cleanupError) when (
+            cleanupError is InvalidOperationException or NotSupportedException or Win32Exception)
+        {
+            progress?.Report($"경고: 실패한 PID {process.Id} 정리 실패: {cleanupError.Message}");
+        }
     }
 
     private static HashSet<string> BuildVerifiedAllowedSet(

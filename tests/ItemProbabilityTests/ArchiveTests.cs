@@ -114,6 +114,25 @@ public sealed class ArchiveTests
     }
 
     [Fact]
+    public void Apply_RefusesToInvalidateAManagedL1Install()
+    {
+        using TestP236Data fixture = TestP236Data.Create();
+        ItemProbabilityConfiguration desired = TestP236Data.Clone(
+            P236ItemProbabilityArchive.Import(fixture.DataDirectory));
+        desired.Individual[0].LowRank++;
+        byte[] originalItem = File.ReadAllBytes(fixture.ItemPath);
+        byte[] originalMetadata = File.ReadAllBytes(fixture.MetadataPath);
+        File.WriteAllBytes(
+            Path.Combine(fixture.DataDirectory, P236L1DataTransaction.InstallFileName),
+            Encoding.UTF8.GetBytes("managed"));
+
+        Assert.Throws<InvalidOperationException>(() =>
+            P236ItemProbabilityArchive.Apply(fixture.DataDirectory, desired));
+        Assert.Equal(originalItem, File.ReadAllBytes(fixture.ItemPath));
+        Assert.Equal(originalMetadata, File.ReadAllBytes(fixture.MetadataPath));
+    }
+
+    [Fact]
     public void Apply_RequiresExactIdsAndNamesBeforeWriting()
     {
         using TestP236Data fixture = TestP236Data.Create();

@@ -18,6 +18,7 @@ internal static class RouterListener
     private static CancellationTokenSource? _stop;
     private static Task? _acceptTask;
     private static ILegacyProfileStore? _profileStore;
+    private static P236LicenseProgress.FloorSnapshot? _licenseProgressFloor;
     private static uint _nextSessionOrdinal;
 
     public static bool IsRunning { get { lock (SyncRoot) return _listener is not null; } }
@@ -31,6 +32,8 @@ internal static class RouterListener
         lock (SyncRoot)
         {
             if (_listener is not null) throw new InvalidOperationException("The P236 listener is already running.");
+            P236LicenseProgress.FloorSnapshot licenseProgressFloor =
+                P236LicenseProgress.FloorSnapshot.Capture(options);
             Directory.CreateDirectory(options.DataDirectory);
             Directory.CreateDirectory(options.LogDirectory);
             ProfilesByUserNo.Clear();
@@ -39,7 +42,7 @@ internal static class RouterListener
             ObservedUdpEndPoints.Clear();
             Sessions.Clear();
             _nextSessionOrdinal = 0;
-            LoadProfilesLocked(Path.Combine(options.DataDirectory, "profiles.json"));
+            LoadProfilesLocked(Path.Combine(options.DataDirectory, "profiles.json"), licenseProgressFloor);
             LegacyObserverPolicy.Reload();
 
             TcpListener listener = new(options.BindAddress, options.TcpPort);
@@ -56,6 +59,7 @@ internal static class RouterListener
                 _udpServer = udpServer;
                 _stop = stop;
                 _acceptTask = Task.Run(() => AcceptLoopAsync(listener, stop.Token));
+                _licenseProgressFloor = licenseProgressFloor;
             }
             catch
             {
@@ -64,6 +68,7 @@ internal static class RouterListener
                 udpServer.Dispose();
                 listener.Stop();
                 _profileStore = null;
+                _licenseProgressFloor = null;
                 throw;
             }
         }
@@ -96,6 +101,7 @@ internal static class RouterListener
             ProfilesByUserNo.Clear();
             ProfilesByUsername.Clear();
             _profileStore = null;
+            _licenseProgressFloor = null;
             CurrentUDPServer = null;
         }
 
@@ -171,6 +177,39 @@ internal static class RouterListener
     {
         ArgumentNullException.ThrowIfNull(session);
         lock (SyncRoot) SaveProfileLocked(session.Profile);
+    }
+
+    public static void UpdateLicenseProgress(
+        SessionGroup session,
+        byte updatedRow,
+        ushort[] completionMasks)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        ArgumentNullException.ThrowIfNull(completionMasks);
+        if (completionMasks.Length != P236LicenseProgress.CompletionMaskCount)
+            throw new ArgumentException(
+                $"Exactly {P236LicenseProgress.CompletionMaskCount} license completion masks are required.",
+                nameof(completionMasks));
+
+        lock (SyncRoot)
+        {
+            P236LicenseProgress.FloorSnapshot licenseProgressFloor =
+                _licenseProgressFloor ??
+                throw new InvalidOperationException("The P236 listener is not running.");
+            LegacySessionProfile profile = session.Profile;
+            lock (profile.PersistenceSyncRoot)
+            {
+                ushort[] mergedMasks = profile.GetLicenseCompletionMasks();
+                for (int index = 0; index < mergedMasks.Length; index++)
+                    mergedMasks[index] |= completionMasks[index];
+
+                if (updatedRow != byte.MaxValue && profile.LicenseLevel < updatedRow)
+                    profile.LicenseLevel = updatedRow;
+                profile.SetLicenseCompletionMasks(mergedMasks);
+                licenseProgressFloor.Apply(profile);
+                SaveProfileLocked(profile);
+            }
+        }
     }
 
     public static bool TryBindChannelProfile(SessionGroup currentSession, uint claimedUserNo)
@@ -249,14 +288,28 @@ internal static class RouterListener
         }
     }
 
-    private static void LoadProfilesLocked(string path)
+    private static void LoadProfilesLocked(
+        string path,
+        P236LicenseProgress.FloorSnapshot licenseProgressFloor)
     {
         JsonLegacyProfileStore store = new(path);
+        List<LegacyProfileRecord> migratedRecords = [];
         foreach (LegacyProfileRecord record in store.LoadAll())
         {
             LegacySessionProfile profile = record.ToProfile();
+            if (licenseProgressFloor.Apply(profile))
+            {
+                migratedRecords.Add(LegacyProfileRecord.FromProfile(profile));
+            }
             ProfilesByUserNo.Add(profile.UserNo, profile);
             ProfilesByUsername.Add(profile.SourceUsername, profile);
+        }
+        if (migratedRecords.Count != 0)
+        {
+            store.SaveAll(migratedRecords);
+            LegacyPacketTrace.LogEvent(
+                $"[P236 PROFILE] Applied the configured license progress floor to " +
+                $"{migratedRecords.Count} persisted profile(s).");
         }
         _profileStore = store;
         LegacyPacketTrace.LogEvent($"[P236 PROFILE] Loaded {ProfilesByUserNo.Count} profile(s) from '{path}'.");
@@ -266,14 +319,27 @@ internal static class RouterListener
     {
         if (_profileStore is null || string.IsNullOrWhiteSpace(profile.SourceUsername)) return;
         if (!ProfilesByUserNo.TryGetValue(profile.UserNo, out LegacySessionProfile? stored) || !ReferenceEquals(stored, profile)) return;
-        try { _profileStore.Save(LegacyProfileRecord.FromProfile(profile)); }
+        try
+        {
+            lock (profile.PersistenceSyncRoot)
+                _profileStore.Save(LegacyProfileRecord.FromProfile(profile));
+        }
         catch (Exception exception) { LegacyPacketTrace.LogEvent($"[P236 PROFILE] Save failed: {exception.Message}"); }
     }
 
     private static void SaveAllProfilesLocked()
     {
         if (_profileStore is null) return;
-        try { _profileStore.SaveAll(ProfilesByUserNo.Values.Select(LegacyProfileRecord.FromProfile)); }
+        try
+        {
+            List<LegacyProfileRecord> records = [];
+            foreach (LegacySessionProfile profile in ProfilesByUserNo.Values)
+            {
+                lock (profile.PersistenceSyncRoot)
+                    records.Add(LegacyProfileRecord.FromProfile(profile));
+            }
+            _profileStore.SaveAll(records);
+        }
         catch (Exception exception) { LegacyPacketTrace.LogEvent($"[P236 PROFILE] Flush failed: {exception.Message}"); }
     }
 

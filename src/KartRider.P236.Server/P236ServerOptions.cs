@@ -19,8 +19,10 @@ public sealed class P236ServerOptions
     public uint DefaultLucci { get; set; } = 1_000_000;
     public uint DefaultPMap { get; set; }
     public short DefaultSlotChanger { get; set; } = 30_000;
-    public byte DefaultLicenseLevel { get; set; } = 3;
-    public ushort[] DefaultLicenseCompletionMasks { get; set; } = [31, 7, 31, 63, 0, 0];
+    public byte DefaultLicenseLevel { get; set; } = P236LicenseProgress.MaximumLevel;
+    public ushort[] DefaultLicenseCompletionMasks { get; set; } =
+        P236LicenseProgress.CreateReplayableL1MissionAccessMasks();
+    public bool EnforceDefaultLicenseProgressFloor { get; set; } = true;
     public ushort DefaultCharacter { get; set; } = 3;
     public ushort DefaultPaint { get; set; } = 1;
     public ushort DefaultKart { get; set; }

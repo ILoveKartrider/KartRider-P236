@@ -9,7 +9,7 @@ namespace KartRider.P236.Server.Tests;
 public sealed class InventoryTests
 {
     [Fact]
-    public void KartInventoryStartsWithBasicPracticeKart()
+    public void KartInventoryContainsOnlySupportedItemTableKartBodies()
     {
         using TemporaryDirectory temporary = new();
         ServerRuntime.Configure(TestOptions.Create(temporary.Path));
@@ -23,8 +23,8 @@ public sealed class InventoryTests
         Assert.Equal(
             Adler32Helper.GenerateAdler32_ASCII("LoRpGetRiderItemPacket"),
             packet.ReadUInt());
-        Assert.Equal(73, packet.ReadInt());
-        for (short expectedItem = 0; expectedItem <= 72; expectedItem++)
+        Assert.Equal(72, packet.ReadInt());
+        for (short expectedItem = 1; expectedItem <= 72; expectedItem++)
         {
             Assert.Equal(3, packet.ReadShort());
             Assert.Equal(expectedItem, packet.ReadShort());

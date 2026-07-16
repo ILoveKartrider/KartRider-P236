@@ -106,7 +106,7 @@ P236 추첨은 클라이언트 로컬 동작이므로 서버 시작만으로 JSO
 - 지원 donor의 theme 추가 571개·P236 우선 충돌 7개와 선택 catalog 수를 검증하고,
   RHO 엔트리·track metadata를 정상 수동 변환본과 같은 Ordinal 순서로 생성
 - 캐릭터, 페인트, 카트, 번호판, 고글, 풍선과 머리띠 장착 저장 및 방에 반영
-- 기본 연습카트(`category=3`, `item=0`)를 모든 사용자 카트 인벤토리에 포함
+- P236 차고가 안전하게 처리하는 일반 카트바디 `item=1..72`만 인벤토리에 포함
 - novice, rookie-intro, rookie, L3, L2, arena와 event 채널 목록 및 속도 preset
 - TCP/UDP 세션의 UserNo 결합, UDP echo와 클라이언트가 요청하는 time-sync 응답
 - 기본 패킷 trace는 끄고 `--trace`에서만 제한된 길이로 기록
@@ -214,7 +214,7 @@ checkpoint 10 이후 숨김은 미구현입니다.
   훅의 relocation·미션 guard·Factory manager lifecycle, 실행/L1 패치 탭의 control 격리
 - 서버 29개: clear/encrypted frame round-trip, IV 진행, 잘못된 checksum 거부,
   제한된 username 파싱, 라이선스 level 0~4와 여섯 개 completion mask의 저장·profile
-  반영, 기본 연습카트를 포함한 카트 인벤토리 wire shape, JSON reopen, loopback 기본값,
+  반영, 카트바디 `item=1..72` 인벤토리 wire shape, JSON reopen, loopback 기본값,
   IPv6 거부, TCP/UDP 시작·종료, 동시 start/stop, disconnect cleanup과 플래그전 전용
   아이템 GameSlot relay, Unicode 방 채팅의 초기화된 rider·observer 중계와 발신자 제외
 - 클라이언트 데이터 38개: 아이템 확률 JSON round-trip·검증, 다섯 확률표 import/apply,
@@ -245,8 +245,6 @@ UDP echo/time-sync packet과 접속기의 실제 UI 상호작용·mutex·registr
 - 독립된 기존 format-v2 fixture의 미지 필드 보존과 실제 중단 복구·rollback
 - 각 인스턴스의 username, PIN endpoint와 문서 루트가 실제 게임에서 동시에 분리되는지
   확인하는 3개 이상 클라이언트 테스트
-- 일반 `itemTable` 행이 아닌 특수 ID 0 연습카트가 실제 P236 차고 목록에서 표시·선택되는지
-  확인하는 수동 클라이언트 테스트
 - L3/L2 채널별 속도 차이 전체 비교; L2 한 경기만 약하게 확인됨
 - 로컬 L1 데이터 패처를 적용한 클라이언트에서 L1 UI, 여섯 개 completion mask와 재접속 유지
 - 비밀번호 방, 8명 rider/8명 observer, pagination과 방장 연결 종료
@@ -298,6 +296,8 @@ UDP echo/time-sync packet과 접속기의 실제 UI 상호작용·mutex·registr
 - 인증은 password나 token을 검증하지 않고 username만 신뢰합니다. 잘못된 login
   profile은 임시 GUID username으로 대체되어 신규 JSON 계정으로 저장될 수 있습니다.
 - rider inventory는 계정 소유 목록이 아니라 고정 전체 카탈로그와 임시 수량입니다.
+- 특수 ID 0 연습카트를 카트바디 인벤토리에 넣으면 P236 차고 진입 시 종료되므로,
+  서버는 일반 `itemTable` 카트 `1..72`만 목록으로 제공합니다.
 - gift 목록은 비어 있고 cash는 0이며 event/license reward는 지급하지 않습니다.
 - 다른 rider 정보 조회는 자신의 nickname에만 성공합니다.
 - 동적 채널 상태와 command 응답은 비어 있거나 0입니다.

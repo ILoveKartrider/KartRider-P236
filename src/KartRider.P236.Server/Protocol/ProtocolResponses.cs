@@ -97,9 +97,9 @@ internal static class ProtocolResponses
 
     public static void SendInventory(SessionGroup session)
     {
-        // The basic practice kart is P236's category-3 pseudo-item 0; normal
-        // itemTable kart entries begin at 1.
-        SendInventoryCategory(session, 3, 0, 73, 1);
+        // P236's garage expects normal itemTable kart IDs. Advertising the
+        // special practice-kart ID 0 as an owned body crashes the kart list.
+        SendInventoryCategory(session, 3, 1, 72, 1);
         SendInventoryCategory(session, 1, 1, 16, 1);
         SendInventoryCategory(session, 11, 1, 6, 30_000);
         SendInventoryCategory(session, 8, 1, 5, 1);
